@@ -766,7 +766,10 @@ cllExecSqlWithResult( icatSessionStruct *icss, int *stmtNum, char *sql ) {
     if ( bindTheVariables( hstmt, sql ) != 0 ) {
         return( -1 );
     }
-
+   
+#ifdef PSQICAT 
+    i = cllExecSqlNoResult( icss, "SAVEPOINT lowlevel_odbc_savepoint" );
+#endif
     rodsLogSql( sql );
     stat = SQLExecDirect( hstmt, ( unsigned char * )sql, SQL_NTS );
 
@@ -799,8 +802,15 @@ cllExecSqlWithResult( icatSessionStruct *icss, int *stmtNum, char *sql ) {
                  stat, sql );
         logPsgError( LOG_NOTICE, icss->environPtr, myHdbc, hstmt,
                      icss->databaseType );
+#ifdef PSQICAT 
+        i = cllExecSqlNoResult( icss, "ROLLBACK TO SAVEPOINT lowlevel_odbc_savepoint" );
+#endif
         return( -1 );
     }
+    
+#ifdef PSQICAT 
+    i = cllExecSqlNoResult( icss, "RELEASE SAVEPOINT lowlevel_odbc_savepoint" );
+#endif
 
     stat =  SQLNumResultCols( hstmt, &numColumns );
     if ( stat != SQL_SUCCESS ) {
@@ -1325,7 +1335,8 @@ extern "C" int cllTest( char *userArg, char *pwArg ) {
 
     i = cllConnect( &icss );
     if ( i != 0 ) {
-        exit( -1 );
+        printf( "cllConnect failed with error %d.\n", i );
+        return( i );
     }
 
     i = cllExecSqlNoResult( &icss, "create table test (i integer, j integer, a varchar(32))" );
